@@ -43,6 +43,7 @@ def sftp_deco():
         return _impl
     return wrapper
 
+
 class SFTPStorage:
     def __init__(self):
         # create ssh client
