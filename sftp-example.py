@@ -50,24 +50,29 @@ class SFTPStorage:
         self._base_path="./backend_test1"
         self._is_connected = False
         self._is_sessioned = False
+        self._init_cnt = 0
 
     def _connect(self):
-        self._ssh_client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-        self._ssh_client.connect(hostname=host,port=port,username=username,password=password)
-        self._is_connected = True
-        self._ftp=self._ssh_client.open_sftp()
-        self._is_sessioned = True
+        if not self._is_connected:
+            self._ssh_client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+            self._ssh_client.connect(hostname=host,port=port,username=username,password=password)
+            self._is_connected = True
+        if not self._is_sessioned:
+            self._ftp=self._ssh_client.open_sftp()
+            self._is_sessioned = True
+        self._init_cnt += 1
 
     def _close(self):
-        if self._is_sessioned:
-            self._ftp.close()
-            self._is_sessioned = False
-        if self._is_connected:
-            self._ssh_client.close()
-            self._is_connected = False
+        self._init_cnt -= 1
+        if self._init_cnt == 0:
+            if self._is_sessioned:
+                self._ftp.close()
+                self._is_sessioned = False
+            if self._is_connected:
+                self._ssh_client.close()
+                self._is_connected = False
 
-    @sftp_deco()
-    def _get_list(self, sub_path=None):
+    def _get_list_internal(self, sub_path=None):
         if sub_path == None:
             files=self._ftp.listdir(self._base_path)
         else:
@@ -75,25 +80,34 @@ class SFTPStorage:
             files = self._ftp.listdir(target_path)
         return files
 
+    def _is_file_internal(self, file, sub_path=None):
+        files = self._get_list_internal(sub_path=sub_path)
+        return True if file in files else False
+
     @sftp_deco()
-    def _is_file(self, file_name, sub_Path=None):
-        file_names = self._get_list(sub_path)
-        return True if file_name in file_names else False
+    def get_list(self, sub_path=None):
+        return self._get_list_internal(sub_path=sub_path)
+
+    @sftp_deco()
+    def is_file(self, file, sub_Path=None):
+        return self._is_file_internal(file=file, sub_path=sub_path)
     
     @sftp_deco()
-    def _mkdir(self, path_name):
+    def mkdir(self, path_name):
         self._ftp.mkdir(self._base_path + "/" + add_path)
         print(f'files1={files}')
     
     @sftp_deco()
-    def _write(self, target_name, buffer):
+    def write(self, target_name, buffer, is_over_write=True):
+        if is_over_write == False and self._is_file_internal(file=target_name, sub_path=None):
+            raise MyException("[Errno 17] File exists")
         file_path = self._base_path + "/" + target_name
         with self._ftp.open(file_path, "w") as fp:
           fp._write(buffer)
           fp.close()
 
     @sftp_deco()
-    def _read(self, target_name):
+    def read(self, target_name):
         file_path = self._base_path + "/" + target_name
         with self._ftp.open(file_path, "r") as fp:
           message1 = fp.read()
@@ -101,7 +115,7 @@ class SFTPStorage:
           return message1
 
     @sftp_deco()
-    def _remove(self, target_name):
+    def remove(self, target_name):
         file_path = self._base_path + "/" + target_name
         self._ftp.remove(file_path)
 
@@ -109,14 +123,14 @@ class SFTPStorage:
 if __name__=="__main__":
     or_msg = "there are no exception. you must go now."
     storage = SFTPStorage()
-    files = storage._get_list()
+    files = storage.get_list()
     print(f'files0={files}')
     for file in ["3.txt", "2.txt", "1.txt"]:
-        print(f'_is_file({file}) = {storage._is_file(file)}')
+        print(f'is_file({file}) = {storage.is_file(file)}')
     storage._remove("3.txt")
-    print(f'_is_file(3.txt) = {storage._is_file("3.txt")}')
-    storage._write("3.txt", or_msg)
-    msg = storage._read("3.txt")
+    print(f'is_file(3.txt) = {storage.is_file("3.txt")}')
+    storage.write("3.txt", or_msg)
+    msg = storage.read("3.txt")
     print(f'msg = {msg}')
 
 """
