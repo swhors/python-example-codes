@@ -8,10 +8,6 @@ port=[SFTP Server Port, Int Type]
 username=[SFTP Server Account, String Type]
 password=[SFTP Server Password, String Type]
 
-message="test message\r\n abdbdjaslkdjaslkdjals\r\n 123343545465645\r\n "\
-        "1,2,3,3,4,,5,56,6"\
-        "a,v,d,sd,c,d,d"
-
 
 class MyException(Exception):
     def __init__(self, msg):
@@ -59,7 +55,6 @@ class SFTPStorage:
         self._ssh_client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
         self._ssh_client.connect(hostname=host,port=port,username=username,password=password)
         self._is_connected = True
-        print('connection established successfully')
         self._ftp=self._ssh_client.open_sftp()
         self._is_sessioned = True
 
@@ -72,10 +67,19 @@ class SFTPStorage:
             self._is_connected = False
 
     @sftp_deco()
-    def _get_list(self):
-        files=self._ftp.listdir(self._base_path)
+    def _get_list(self, sub_path=None):
+        if sub_path == None:
+            files=self._ftp.listdir(self._base_path)
+        else:
+            target_path = self.base_path + "/" + sub_path
+            files = self._ftp.listdir(target_path)
         return files
 
+    @sftp_deco()
+    def _is_file(self, file_name, sub_Path=None):
+        file_names = self._get_list(sub_path)
+        return True if file_name in file_names else False
+    
     @sftp_deco()
     def _mkdir(self, path_name):
         self._ftp.mkdir(self._base_path + "/" + add_path)
@@ -103,29 +107,26 @@ class SFTPStorage:
 
 
 if __name__=="__main__":
+    or_msg = "there are no exception. you must go now."
     storage = SFTPStorage()
     files = storage._get_list()
     print(f'files0={files}')
+    for file in ["3.txt", "2.txt", "1.txt"]:
+        print(f'_is_file({file}) = {storage._is_file(file)}')
     storage._remove("3.txt")
-    storage._write("3.txt", "there are no exception. you must go now.")
+    print(f'_is_file(3.txt) = {storage._is_file("3.txt")}')
+    storage._write("3.txt", or_msg)
     msg = storage._read("3.txt")
     print(f'msg = {msg}')
 
 """
-aip-0164@aip-0164ui-MacBookPro sftp % ## Abnormal Case
-aip-0164@aip-0164ui-MacBookPro sftp % python ftp4.py
-Exception : [Errno 8] nodename nor servname provided, or not known
-files0=None
-Exception : [Errno 8] nodename nor servname provided, or not known
-Exception : [Errno 8] nodename nor servname provided, or not known
-Exception : [Errno 8] nodename nor servname provided, or not known
-msg = None
-aip-0164@aip-0164ui-MacBookPro sftp % ## Normal Case
-aip-0164@aip-0164ui-MacBookPro sftp % python ftp4.py
-connection established successfully
+aip-0164@aip-MacBookPro sftp % python ftp4.py
 files0=['2.txt', '3.txt']
-connection established successfully
-connection established successfully
-connection established successfully
-msg = b'there are no exception. you must go now.'
+_is_file(3.txt) = True
+_is_file(2.txt) = True
+_is_file(1.txt) = False
+_is_file(3.txt) = False
+or_msg = there are no exception. you must go now.
+rd_msg = b'there are no exception. you must go now.'
+aip-0164@aip-MacBookPro sftp %
 """
