@@ -95,8 +95,11 @@ class SFTPStorage:
     
     @sftp_deco()
     def mkdir(self, path_name):
-        self._ftp.mkdir(self._base_path + "/" + add_path)
-        print(f'files1={files}')
+        self._ftp.mkdir(self._base_path + "/" + path_name)
+
+    @sftp_deco()
+    def rmdir(self, path_name):
+        self._ftp.mkdir(self._base_path + "/" + path_name)
     
     @sftp_deco()
     def write(self, target_name, buffer, is_over_write=True):
